@@ -52,8 +52,8 @@ public class MessageSigner {
 			throw new SigningException("Cannot sign an invalid message.", e);
 		}
 		String jti = UUID.randomUUID().toString().replaceAll("-", "");
-		
-		String token = getJwt(message, jti);
+
+		String token = getJwsEnvelopedJwt(getSignedJwt(message, jti));
 		String body = null;
 		if (message.getBody() != null) {
 			body = getJws(message, jti);
@@ -61,7 +61,7 @@ public class MessageSigner {
 		return new SignedMessage(token, body);
 	}
 
-	private String getJwt(Message message, String jti) {
+	private SignedJWT getSignedJwt(Message message, String jti) {
 		JWTClaimsSet jwtClaims = getJwtClaims(message, jti);
 		JWSHeader jwtHeader = new JWSHeader.Builder(jwsAlgorithm)
 				.type(JOSEObjectType.JWT)
@@ -72,10 +72,25 @@ public class MessageSigner {
 		} catch (JOSEException e) {
 			throw new SigningException("Cannot sign JWT.", e);
 		}
-		String token = signedJWT.serialize();
-		return token;
+		return signedJWT;
 	}
-	
+
+	private String getJwsEnvelopedJwt(SignedJWT signedJwt) {
+		JWSHeader jwsHeader = new JWSHeader.Builder(jwsAlgorithm)
+				.type(JOSEObjectType.JOSE)
+				.keyID(issuer)
+				.contentType("application/jwt")
+				.build();
+		Payload payload = new Payload(signedJwt);
+		JWSObject jws = new JWSObject(jwsHeader, payload);
+		try {
+			jws.sign(signer);
+		} catch (JOSEException e) {
+			throw new SigningException("Cannot sign JWS body.", e);
+		}
+		return jws.serialize();
+	}
+
 	private JWTClaimsSet getJwtClaims(Message message, String jti) {
 		JWTClaimsSet.Builder claimsBuilder = new JWTClaimsSet.Builder();
 		claimsBuilder.audience(message.getAudience())
