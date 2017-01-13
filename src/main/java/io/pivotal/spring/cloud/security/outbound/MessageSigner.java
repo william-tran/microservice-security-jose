@@ -1,4 +1,4 @@
-package io.pivotal.spring.cloud.security;
+package io.pivotal.spring.cloud.security.outbound;
 
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;

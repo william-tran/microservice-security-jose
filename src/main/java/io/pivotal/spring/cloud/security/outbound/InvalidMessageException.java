@@ -1,4 +1,4 @@
-package io.pivotal.spring.cloud.security;
+package io.pivotal.spring.cloud.security.outbound;
 
 public class InvalidMessageException extends Exception {
 
