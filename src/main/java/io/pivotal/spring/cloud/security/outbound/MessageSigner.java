@@ -20,10 +20,12 @@ import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 
+import io.pivotal.spring.cloud.security.Constants;
 import lombok.Getter;
 
 public class MessageSigner {
 
+	
 	private static final JWSAlgorithm jwsAlgorithm = JWSAlgorithm.RS256;
 	@Getter
 	private final RSAPublicKey publicKey;
@@ -79,14 +81,14 @@ public class MessageSigner {
 		JWSHeader jwsHeader = new JWSHeader.Builder(jwsAlgorithm)
 				.type(JOSEObjectType.JOSE)
 				.keyID(issuer)
-				.contentType("application/jwt")
+				.contentType(Constants.JWT_CONTENT_TYPE)
 				.build();
 		Payload payload = new Payload(signedJwt);
 		JWSObject jws = new JWSObject(jwsHeader, payload);
 		try {
 			jws.sign(signer);
 		} catch (JOSEException e) {
-			throw new SigningException("Cannot sign JWS body.", e);
+			throw new SigningException("Cannot sign JWS envelope for JWT.", e);
 		}
 		return jws.serialize();
 	}
@@ -98,12 +100,12 @@ public class MessageSigner {
 				.issueTime(new Date())
 				.expirationTime(getExpirationTime(message))
 				.jwtID(jti);
-		claimsBuilder.claim("req", message.getRequest());
+		claimsBuilder.claim(Constants.REQUEST_CLAIM, message.getRequest());
 		if (message.getInitialToken() != null) {
-			claimsBuilder.claim("ini", message.getInitialToken());
+			claimsBuilder.claim(Constants.INITIAL_TOKEN_CLAIM, message.getInitialToken());
 		}
 		if (message.getParentToken() != null) {
-			claimsBuilder.claim("jwt", message.getInitialToken());
+			claimsBuilder.claim(Constants.PARENT_JWT_CLAIM, message.getInitialToken());
 		}
 		if (message.getCustomClaims() != null && !message.getCustomClaims().isEmpty()) {
 			for (Entry<String, Object> entry : message.getCustomClaims().entrySet()) {
@@ -111,7 +113,7 @@ public class MessageSigner {
 			}
 		}
 		if (message.getBody() != null) {
-			claimsBuilder.claim("bdy", true);
+			claimsBuilder.claim(Constants.BODY_CLAIM, true);
 		}
 		return claimsBuilder.build();
 	}
@@ -120,7 +122,7 @@ public class MessageSigner {
 		JWSHeader jwsHeader = new JWSHeader.Builder(jwsAlgorithm)
 				.type(JOSEObjectType.JOSE)
 				.contentType(message.getContentType())
-				.customParam("jti", jti)
+				.customParam(Constants.JWT_ID_CLAIM, jti)
 				.build();
 		Payload payload = new Payload(message.getBody());
 		JWSObject jws = new JWSObject(jwsHeader, payload);
