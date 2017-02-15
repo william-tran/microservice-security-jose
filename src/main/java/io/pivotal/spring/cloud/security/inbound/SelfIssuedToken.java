@@ -1,8 +1,10 @@
 package io.pivotal.spring.cloud.security.inbound;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
+import io.pivotal.spring.cloud.security.Constants;
 import lombok.Getter;
 
 @Getter
@@ -13,6 +15,22 @@ public class SelfIssuedToken {
 
 	public SelfIssuedToken(String audOfIssuer, Map<String, Object> claims) {
 		this.audOfIssuer = audOfIssuer;
+		Object audClaim = claims.get(Constants.AUDIENCE_CLAIM);
+		if (!(audClaim instanceof List)) {
+			throw new IllegalArgumentException("aud must be a list");
+		}
+		List<?> audList = (List<?>) audClaim;
+		if (audList.isEmpty()) {
+			throw new IllegalArgumentException("aud cannot be empty");
+		}
+		if (audList.stream().anyMatch(aud -> !(aud instanceof String))) {
+			throw new IllegalArgumentException("aud must be a list of String");
+		}
 		this.claims = Collections.unmodifiableMap(claims);
+	}
+	
+	@SuppressWarnings("unchecked")
+	public List<String> getAudience() {
+		return (List<String>)claims.get(Constants.AUDIENCE_CLAIM);
 	}
 }

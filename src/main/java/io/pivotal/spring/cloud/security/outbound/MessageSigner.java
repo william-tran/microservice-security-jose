@@ -25,7 +25,6 @@ import lombok.Getter;
 
 public class MessageSigner {
 
-	
 	private static final JWSAlgorithm jwsAlgorithm = JWSAlgorithm.RS256;
 	@Getter
 	private final RSAPublicKey publicKey;

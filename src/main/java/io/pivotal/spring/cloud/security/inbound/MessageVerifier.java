@@ -65,7 +65,7 @@ public class MessageVerifier {
 		callStack.add(new SelfIssuedToken(registryEntry.getAudience(), jwtClaimsSet.getClaims()));
 
 		Map<String, Object> initialTokenClaims = parseAndVerifyCallStack(callStack, jwtClaimsSet);
-
+		checkChainOfCustody(callStack);
 		checkPolicy(initialTokenClaims, callStack);
 
 		JWSObject jwsBody = null;
@@ -86,6 +86,18 @@ public class MessageVerifier {
 		return assembleVerifiedMessage(initialTokenClaims, callStack, jwsBody);
 	}
 
+	private void checkChainOfCustody(List<SelfIssuedToken> callStack) {
+		for (int i = 0; i + 1 < callStack.size(); i++) {
+			SelfIssuedToken token = callStack.get(i);
+			SelfIssuedToken parent = callStack.get(i + 1);
+			if (!parent.getAudience().contains(token.getAudOfIssuer())) {
+				throw new VerificationException(
+						"chain of custody is inconsistent at depth " + i + ", token issued by aud value "
+								+ token.getAudOfIssuer() + " but parent token's aud was " + parent.getAudience());
+			}
+		}
+	}
+
 	private void checkReplay(List<SelfIssuedToken> callStack) {
 		replayChecker.checkReplay(callStack);
 	}
@@ -97,18 +109,18 @@ public class MessageVerifier {
 		Date expirationTime = jwtClaimsSet.getExpirationTime();
 		if (expirationTime == null) {
 			throw new VerificationException("exp must be set");
-		} else if (expirationTime.getTime() <= System.currentTimeMillis()  ) {
+		} else if (expirationTime.getTime() <= System.currentTimeMillis()) {
 			throw new VerificationException("JWT is expired");
 		}
-		
+
 		audienceClaimChecker.checkAudienceClaim(jwtClaimsSet.getAudience());
-		
+
 		Object opClaim = jwtClaimsSet.getClaim(Constants.OPERATION_CLAIM);
 		if (!(opClaim instanceof String)) {
 			throw new VerificationException("op must be a string");
 		}
 		operationChecker.checkOperationClaim(opClaim.toString());
-		
+
 	}
 
 	private void checkPolicy(Map<String, Object> initialTokenClaims, List<SelfIssuedToken> callStack) {
@@ -178,6 +190,5 @@ public class MessageVerifier {
 			throw new VerificationException(objectDescription + " signature verification failed");
 		}
 	}
-
 
 }
