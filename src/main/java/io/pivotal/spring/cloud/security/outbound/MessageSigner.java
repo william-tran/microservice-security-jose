@@ -137,6 +137,5 @@ public class MessageSigner {
 	private Date getExpirationTime(Message message) {
 		return new Date(System.currentTimeMillis() + message.getTtlSeconds() * 1000);
 	}
-	
 
 }
