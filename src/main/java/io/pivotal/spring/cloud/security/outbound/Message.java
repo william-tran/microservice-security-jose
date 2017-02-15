@@ -14,7 +14,7 @@ public class Message {
 	private String parentToken;
 	@Singular("audience")
 	private List<String> audience;
-	private String request;
+	private String operation;
 	private Integer ttlSeconds;
 	@Singular("claim")
 	private Map<String,Object> customClaims;
@@ -28,8 +28,8 @@ public class Message {
 		if (audience == null || audience.isEmpty()) {
 			throw new InvalidMessageException("Audience must have at least one value.");
 		}
-		if (request == null) {
-			throw new InvalidMessageException("Request must be set.");
+		if (operation == null) {
+			throw new InvalidMessageException("Operation must be set.");
 		}
 		if (body == null && contentType != null || body != null && contentType == null ) {
 			throw new InvalidMessageException("Both body and contentType must be null or not null");

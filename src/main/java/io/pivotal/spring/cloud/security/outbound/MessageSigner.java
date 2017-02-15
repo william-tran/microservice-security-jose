@@ -100,7 +100,7 @@ public class MessageSigner {
 				.issueTime(new Date())
 				.expirationTime(getExpirationTime(message))
 				.jwtID(jti);
-		claimsBuilder.claim(Constants.REQUEST_CLAIM, message.getRequest());
+		claimsBuilder.claim(Constants.OPERATION_CLAIM, message.getOperation());
 		if (message.getInitialToken() != null) {
 			claimsBuilder.claim(Constants.INITIAL_TOKEN_CLAIM, message.getInitialToken());
 		}
@@ -137,5 +137,6 @@ public class MessageSigner {
 	private Date getExpirationTime(Message message) {
 		return new Date(System.currentTimeMillis() + message.getTtlSeconds() * 1000);
 	}
+	
 
 }
