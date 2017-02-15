@@ -1,4 +1,4 @@
-package io.pivotal.spring.cloud.security.outbound;
+package io.pivotal.spring.cloud.jose.outbound;
 
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -20,7 +20,7 @@ import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 
-import io.pivotal.spring.cloud.security.Constants;
+import io.pivotal.spring.cloud.jose.Constants;
 import lombok.Getter;
 
 public class MessageSigner {

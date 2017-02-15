@@ -1,10 +1,10 @@
-package io.pivotal.spring.cloud.security.inbound;
+package io.pivotal.spring.cloud.jose.inbound;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import io.pivotal.spring.cloud.security.Constants;
+import io.pivotal.spring.cloud.jose.Constants;
 import lombok.Getter;
 
 @Getter

@@ -1,4 +1,4 @@
-package io.pivotal.spring.cloud.security;
+package io.pivotal.spring.cloud.jose;
 
 public class Constants {
 	public static final String JWT_CONTENT_TYPE = "JWT";

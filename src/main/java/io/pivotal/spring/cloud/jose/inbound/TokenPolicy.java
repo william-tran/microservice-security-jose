@@ -1,4 +1,4 @@
-package io.pivotal.spring.cloud.security.inbound;
+package io.pivotal.spring.cloud.jose.inbound;
 
 import java.util.List;
 import java.util.Map;

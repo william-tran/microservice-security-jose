@@ -1,4 +1,4 @@
-package io.pivotal.spring.cloud.security.inbound;
+package io.pivotal.spring.cloud.jose.inbound;
 
 import java.text.ParseException;
 import java.util.ArrayList;
@@ -14,9 +14,9 @@ import com.nimbusds.jose.crypto.RSASSAVerifier;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 
-import io.pivotal.spring.cloud.security.Constants;
-import io.pivotal.spring.cloud.security.inbound.PublicKeyRegistry.Entry;
-import io.pivotal.spring.cloud.security.outbound.SignedMessage;
+import io.pivotal.spring.cloud.jose.Constants;
+import io.pivotal.spring.cloud.jose.inbound.PublicKeyRegistry.Entry;
+import io.pivotal.spring.cloud.jose.outbound.SignedMessage;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
