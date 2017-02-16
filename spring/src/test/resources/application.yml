@@ -1,0 +1,52 @@
+b:
+  policy:
+    for-each-of-the-following:
+    - enforce-the-first-matching-rule:
+      - any-token: true
+        must:
+          have-initial-token:
+            where-scope-contains:
+              value: app.user
+    - enforce-the-first-matching-rule:
+      - tokens-that:
+          have-operation:
+            equal-to: foo
+        must:
+          come-from:
+          - app-name:
+              equal-to: a
+c:
+  policy:
+    for-each-of-the-following:
+    - enforce-the-first-matching-rule:
+      - tokens-that:
+          have-operation:
+            equal-to: bar
+        must:
+          come-from:
+          - app-name:
+              equal-to: b
+          - app-name:
+              equal-to: a
+            via-operation:
+              equal-to: foo
+              
+d:
+  policy:
+    for-each-of-the-following:
+    - enforce-the-first-matching-rule:
+      - tokens-that:
+          have-operation:
+            equal-to: baz
+        must:
+          come-from:
+          - app-name:
+              equal-to: c
+          - app-name:
+              equal-to: b
+            via-operation:
+              equal-to: bar
+          - app-name:
+              equal-to: a
+            via-operation:
+              equal-to: foo              

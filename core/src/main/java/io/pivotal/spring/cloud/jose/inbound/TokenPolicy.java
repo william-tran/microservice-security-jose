@@ -85,7 +85,7 @@ public class TokenPolicy {
 			boolean result = oneNotNull(haveOperation, haveInitialToken, comeFrom, haveClaim, or);
 			SelfIssuedToken token = callStack.get(0);
 			result = result && (haveOperation == null
-					|| haveOperation.equals(token.getClaims().get(Constants.OPERATION_CLAIM)));
+					|| haveOperation.matches(token.getClaims().get(Constants.OPERATION_CLAIM)));
 			result = result && (haveInitialToken == null || haveInitialToken.matches(initialTokenClaims));
 			result = result && (haveClaim == null || matchesCustomClaims(haveClaim, token.getClaims()));
 			result = result && (comeFrom == null || matchesCallStack(callStack));

@@ -6,8 +6,10 @@ import java.util.Map;
 
 import io.pivotal.spring.cloud.jose.Constants;
 import lombok.Getter;
+import lombok.ToString;
 
 @Getter
+@ToString
 public class SelfIssuedToken {
 	
 	private final String audOfIssuer;

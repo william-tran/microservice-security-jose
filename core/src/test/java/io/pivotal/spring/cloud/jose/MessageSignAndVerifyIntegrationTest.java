@@ -25,7 +25,7 @@ import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
 
 import io.pivotal.spring.cloud.jose.inbound.AudienceClaimChecker;
-import io.pivotal.spring.cloud.jose.inbound.IntialTokenClaimsExtrator;
+import io.pivotal.spring.cloud.jose.inbound.InitialTokenClaimsExtractor;
 import io.pivotal.spring.cloud.jose.inbound.MessageVerifier;
 import io.pivotal.spring.cloud.jose.inbound.OperationClaimChecker;
 import io.pivotal.spring.cloud.jose.inbound.PolicyChecker;
@@ -50,7 +50,7 @@ public class MessageSignAndVerifyIntegrationTest {
 	@Mock
 	private AudienceClaimChecker audienceClaimChecker;
 	@Mock
-	private IntialTokenClaimsExtrator intialTokenClaimsExtrator;
+	private InitialTokenClaimsExtractor initialTokenClaimsExtractor;
 	@Mock
 	private OperationClaimChecker operationChecker;
 
@@ -73,11 +73,11 @@ public class MessageSignAndVerifyIntegrationTest {
 	@Before
 	public void setup() {
 		publicKeyRegistry = new TestPublicKeyRegistry(signers);
-		verifier = new MessageVerifier(publicKeyRegistry, intialTokenClaimsExtrator, policyChecker, replayChecker,
+		verifier = new MessageVerifier(publicKeyRegistry, initialTokenClaimsExtractor, policyChecker, replayChecker,
 				audienceClaimChecker);
 		initialToken = UUID.randomUUID().toString();
 		initialTokenClaims = Collections.singletonMap("sub", UUID.randomUUID().toString());
-		when(intialTokenClaimsExtrator.extractVerifiedClaims(initialToken)).thenReturn(initialTokenClaims);
+		when(initialTokenClaimsExtractor.extractVerifiedClaims(initialToken)).thenReturn(initialTokenClaims);
 
 		body = UUID.randomUUID().toString().getBytes();
 		contentType = "text/plain";
@@ -172,7 +172,7 @@ public class MessageSignAndVerifyIntegrationTest {
 		SignedAndVerified doAtoB = doAtoB();
 
 		MessageVerifier failingVerifier = new MessageVerifier(new IncorrectPublicKeyRegistry(),
-				intialTokenClaimsExtrator, policyChecker, replayChecker, audienceClaimChecker);
+				initialTokenClaimsExtractor, policyChecker, replayChecker, audienceClaimChecker);
 		try {
 			failingVerifier.verify(doAtoB.signedMessage, operationChecker);
 		} catch (VerificationException e) {

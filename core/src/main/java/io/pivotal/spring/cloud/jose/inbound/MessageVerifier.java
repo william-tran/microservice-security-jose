@@ -23,7 +23,7 @@ import lombok.RequiredArgsConstructor;
 public class MessageVerifier {
 
 	private final PublicKeyRegistry keyRegistry;
-	private final IntialTokenClaimsExtrator intialTokenClaimsExtrator;
+	private final InitialTokenClaimsExtractor initialTokenClaimsExtractor;
 	private final PolicyChecker policyChecker;
 	private final ReplayChecker replayChecker;
 	private final AudienceClaimChecker audienceClaimChecker;
@@ -143,7 +143,7 @@ public class MessageVerifier {
 			JWTClaimsSet jwtClaimsSet) {
 		Object initialTokenClaim = jwtClaimsSet.getClaim(Constants.INITIAL_TOKEN_CLAIM);
 		if (initialTokenClaim != null) {
-			return intialTokenClaimsExtrator.extractVerifiedClaims(initialTokenClaim.toString());
+			return initialTokenClaimsExtractor.extractVerifiedClaims(initialTokenClaim.toString());
 		}
 
 		Object parentJwtClaim = jwtClaimsSet.getClaim(Constants.PARENT_JWT_CLAIM);
