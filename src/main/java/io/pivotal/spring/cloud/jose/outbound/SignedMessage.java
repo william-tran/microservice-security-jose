@@ -6,6 +6,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Getter
 public class SignedMessage {
-	private final String token;
+	private final String tokenChainEnvelope;
 	private final String body;
 }

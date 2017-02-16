@@ -29,11 +29,11 @@ public class MessageVerifier {
 	private final AudienceClaimChecker audienceClaimChecker;
 
 	public VerifiedMessage verify(SignedMessage message, OperationClaimChecker operationChecker) {
-		String token = message.getToken();
+		String tokenChainEnvelope = message.getTokenChainEnvelope();
 
 		JWSObject jwsEnvelope;
 		try {
-			jwsEnvelope = JWSObject.parse(token);
+			jwsEnvelope = JWSObject.parse(tokenChainEnvelope);
 		} catch (ParseException e) {
 			throw new VerificationException("JWS envelope for JWT cannot be parsed", e);
 		}
@@ -83,7 +83,7 @@ public class MessageVerifier {
 		}
 		checkReplay(callStack);
 
-		return assembleVerifiedMessage(initialTokenClaims, callStack, jwsBody);
+		return assembleVerifiedMessage(signedJWT, initialTokenClaims, callStack, jwsBody);
 	}
 
 	private void checkChainOfCustody(List<SelfIssuedToken> callStack) {
@@ -127,14 +127,14 @@ public class MessageVerifier {
 		policyChecker.checkPolicy(initialTokenClaims, callStack);
 	}
 
-	private VerifiedMessage assembleVerifiedMessage(Map<String, Object> initialTokenClaims,
+	private VerifiedMessage assembleVerifiedMessage(SignedJWT tokenChain, Map<String, Object> initialTokenClaims,
 			List<SelfIssuedToken> callStack, JWSObject jwsBody) {
 		if (jwsBody == null) {
-			return new VerifiedMessage(initialTokenClaims, callStack);
+			return new VerifiedMessage(tokenChain.getParsedString(), initialTokenClaims, callStack);
 		} else {
 			String contentType = jwsBody.getHeader().getContentType();
 			byte[] bytes = jwsBody.getPayload().toBytes();
-			return new VerifiedMessage(initialTokenClaims, callStack, contentType, bytes);
+			return new VerifiedMessage(tokenChain.getParsedString(), initialTokenClaims, callStack, contentType, bytes);
 		}
 
 	}

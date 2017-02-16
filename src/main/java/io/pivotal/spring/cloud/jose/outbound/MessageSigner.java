@@ -104,7 +104,7 @@ public class MessageSigner {
 			claimsBuilder.claim(Constants.INITIAL_TOKEN_CLAIM, message.getInitialToken());
 		}
 		if (message.getParentToken() != null) {
-			claimsBuilder.claim(Constants.PARENT_JWT_CLAIM, message.getInitialToken());
+			claimsBuilder.claim(Constants.PARENT_JWT_CLAIM, message.getParentToken());
 		}
 		if (message.getCustomClaims() != null && !message.getCustomClaims().isEmpty()) {
 			for (Entry<String, Object> entry : message.getCustomClaims().entrySet()) {

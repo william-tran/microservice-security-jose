@@ -9,18 +9,20 @@ import lombok.Getter;
 @Getter
 public class VerifiedMessage {
 
-	public VerifiedMessage(Map<String, Object> initialTokenClaims, List<SelfIssuedToken> callStack, String contentType,
+	public VerifiedMessage(String tokenChain, Map<String, Object> initialTokenClaims, List<SelfIssuedToken> callStack, String contentType,
 			byte[] body) {
-		this.initialTokenClaims = Collections.unmodifiableMap(initialTokenClaims);
+		this.tokenChain = tokenChain;
+		this.initialTokenClaims = initialTokenClaims != null ? Collections.unmodifiableMap(initialTokenClaims) : null;
 		this.callStack = Collections.unmodifiableList(callStack);
 		this.contentType = contentType;
 		this.body = body;
 	}
 
-	public VerifiedMessage(Map<String, Object> initialTokenClaims, List<SelfIssuedToken> callStack) {
-		this(initialTokenClaims, callStack, null, null);
+	public VerifiedMessage(String token, Map<String, Object> initialTokenClaims, List<SelfIssuedToken> callStack) {
+		this(token, initialTokenClaims, callStack, null, null);
 	}
 
+	private final String tokenChain;
 	private final Map<String, Object> initialTokenClaims;
 	private final List<SelfIssuedToken> callStack;
 	private final String contentType;
