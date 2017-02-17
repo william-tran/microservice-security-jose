@@ -1,4 +1,4 @@
-b:
+cart:
   policy:
     for-each-of-the-following:
     - enforce-the-first-matching-rule:
@@ -6,47 +6,47 @@ b:
         must:
           have-initial-token:
             where-scope-contains:
-              value: app.user
+              value: shop.user
     - enforce-the-first-matching-rule:
       - tokens-that:
           have-operation:
-            equal-to: foo
+            equal-to: checkout
         must:
           come-from:
           - app-name:
-              equal-to: a
-c:
+              equal-to: shop
+inventory:
   policy:
     for-each-of-the-following:
     - enforce-the-first-matching-rule:
       - tokens-that:
           have-operation:
-            equal-to: bar
+            equal-to: commit
         must:
           come-from:
           - app-name:
-              equal-to: b
+              equal-to: cart
           - app-name:
-              equal-to: a
+              equal-to: shop
             via-operation:
-              equal-to: foo
+              equal-to: checkout
               
-d:
+suppliers:
   policy:
     for-each-of-the-following:
     - enforce-the-first-matching-rule:
       - tokens-that:
           have-operation:
-            equal-to: baz
+            equal-to: resupply
         must:
           come-from:
           - app-name:
-              equal-to: c
+              equal-to: inventory
           - app-name:
-              equal-to: b
+              equal-to: cart
             via-operation:
-              equal-to: bar
+              equal-to: commit
           - app-name:
-              equal-to: a
+              equal-to: shop
             via-operation:
-              equal-to: foo              
+              equal-to: checkout              

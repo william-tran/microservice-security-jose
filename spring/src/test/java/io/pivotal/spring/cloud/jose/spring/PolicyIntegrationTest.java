@@ -52,92 +52,105 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 public class PolicyIntegrationTest {
-	
-	private static TestApp a;
-	private static TestApp b;
-	private static TestApp c;
-	private static TestApp d;
+
+	private static TestApp shop;
+	private static TestApp cart;
+	private static TestApp inventory;
+	private static TestApp suppliers;
 	private static TestPublicKeyRegistry keyRegistry = new TestPublicKeyRegistry();
 
 	@BeforeClass
 	public static void init() {
-		
-			ConfigurableApplicationContext context = new SpringApplicationBuilder().web(false)
-					.properties("spring.aop.proxyTargetClass=true")
-					.sources(PolicyIntegrationTest.TestConfig.class).run();
-			TokenPolicy policyA = context.getBean("policyA", TokenPolicy.class);
-			TokenPolicy policyB = context.getBean("policyB", TokenPolicy.class);
-			TokenPolicy policyC = context.getBean("policyC", TokenPolicy.class);
-			TokenPolicy policyD = context.getBean("policyD", TokenPolicy.class);
-			a = new TestApp("a", policyA, keyRegistry);
-			b = new TestApp("b", policyB, keyRegistry);
-			c = new TestApp("c", policyC, keyRegistry);
-			d = new TestApp("d", policyD, keyRegistry);
-			keyRegistry.register(a);
-			keyRegistry.register(b);
-			keyRegistry.register(c);
-			keyRegistry.register(d);
-		
+
+		ConfigurableApplicationContext context = new SpringApplicationBuilder().web(false)
+				.properties("spring.aop.proxyTargetClass=true")
+				.sources(PolicyIntegrationTest.TestConfig.class).run();
+		TokenPolicy policyShop = context.getBean("policyShop", TokenPolicy.class);
+		TokenPolicy policyCart = context.getBean("policyCart", TokenPolicy.class);
+		TokenPolicy policyInventory = context.getBean("policyInventory", TokenPolicy.class);
+		TokenPolicy policySuppliers = context.getBean("policySuppliers", TokenPolicy.class);
+		shop = new TestApp("shop", policyShop, keyRegistry);
+		cart = new TestApp("cart", policyCart, keyRegistry);
+		inventory = new TestApp("inventory", policyInventory, keyRegistry);
+		suppliers = new TestApp("suppliers", policySuppliers, keyRegistry);
+		keyRegistry.register(shop);
+		keyRegistry.register(cart);
+		keyRegistry.register(inventory);
+		keyRegistry.register(suppliers);
+
 	}
-	
+
 	@Test
 	public void happyPath() {
-		SignedMessage signedMessage = a.signMessage("b", "foo", "hello b, time to foo");
-		VerifiedMessage verifiedMessage = b.verifyMessage(signedMessage, "foo");
-		signedMessage = b.signMessage("c", "bar", "hello c, time to bar", verifiedMessage.getTokenChain());
-		verifiedMessage = c.verifyMessage(signedMessage, "bar");
-		signedMessage = c.signMessage("d", "baz", "hello d, time to baz", verifiedMessage.getTokenChain());
-		verifiedMessage = d.verifyMessage(signedMessage, "baz");
+		// shop signs a message for cart
+		SignedMessage signedMessage = shop.signMessage("cart", "checkout", "hello cart, time to checkout");
+		// cart receives and verifies the message
+		VerifiedMessage verifiedMessage = cart.verifyMessage(signedMessage, "checkout");
+		// cart signs a message for inventory, including the token chain it got from shop
+		signedMessage = cart.signMessage("inventory", "commit", "hello inventory, time to move things around",
+				verifiedMessage.getTokenChain());
+		// inventory receives and verifies the message
+		verifiedMessage = inventory.verifyMessage(signedMessage, "commit");
+		// inventory signs a message for suppliers, including the token chain it got from cart
+		signedMessage = inventory.signMessage("suppliers", "resupply", "hello suppliers, time to order new goods",
+				verifiedMessage.getTokenChain());
+		// suppliers receives and verifies the message
+		verifiedMessage = suppliers.verifyMessage(signedMessage, "resupply");
 	}
-	
-	@Test(expected=VerificationException.class)
+
+	@Test(expected = VerificationException.class)
 	public void chainOfCustodyBroken() {
-		SignedMessage signedMessage = a.signMessage("b", "foo", "hello b, time to foo");
-		VerifiedMessage verifiedMessage = b.verifyMessage(signedMessage, "foo");
+		// shop signs a message for cart
+		SignedMessage signedMessage = shop.signMessage("cart", "checkout", "hello cart, time to checkout");
+		// cart receives and verifies the message
+		VerifiedMessage verifiedMessage = cart.verifyMessage(signedMessage, "checkout");
+		// save the token chain that cart got from shop to use later
 		String tokenChainFromA = verifiedMessage.getTokenChain();
-		signedMessage = b.signMessage("c", "bar", "hello c, time to bar", tokenChainFromA);
-		verifiedMessage = c.verifyMessage(signedMessage, "bar");
-		signedMessage = c.signMessage("d", "baz", "hello d, time to baz", tokenChainFromA);
-		verifiedMessage = d.verifyMessage(signedMessage, "baz");
+		// cart signs a message for inventory, including the token chain it got from shop
+		signedMessage = cart.signMessage("inventory", "commit", "hello inventory, time to move things around", tokenChainFromA);
+		// inventory receives and verifies the message
+		verifiedMessage = inventory.verifyMessage(signedMessage, "commit");
+		// inventory signs a message for suppliers, including a truncated token chain from shop
+		signedMessage = inventory.signMessage("suppliers", "resupply", "hello suppliers, time to order new goods", tokenChainFromA);
+		// this throws an exception
+		verifiedMessage = suppliers.verifyMessage(signedMessage, "resupply");
 	}
-	
+
 	@Test
 	@Ignore
-	public void needsPolicyChange() {
-		SignedMessage signedMessage = a.signMessage("b", "foo", "hello b, time to foo");
-		VerifiedMessage verifiedMessage = b.verifyMessage(signedMessage, "foo");
-		// b is going straight to d
-		signedMessage = b.signMessage("d", "baz", "hello d, time to baz", verifiedMessage.getTokenChain());
-		verifiedMessage = d.verifyMessage(signedMessage, "baz");
+	public void twoPaths() {
+		SignedMessage signedMessage = shop.signMessage("cart", "checkout", "hello cart, time to checkout");
+		VerifiedMessage verifiedMessage = cart.verifyMessage(signedMessage, "checkout");
+		// cart is going straight to suppliers
+		signedMessage = cart.signMessage("suppliers", "resupply", "hello suppliers, time to order new goods", verifiedMessage.getTokenChain());
+		verifiedMessage = suppliers.verifyMessage(signedMessage, "resupply");
 	}
-	
-	
+
 	@Configuration
 	@EnableConfigurationProperties
 	static class TestConfig {
-		
 
 		@Bean
-		@ConfigurationProperties("a.policy")
-		public TokenPolicy policyA() {
+		@ConfigurationProperties("shop.policy")
+		public TokenPolicy policyShop() {
 			return new TokenPolicy();
 		}
-		
+
 		@Bean
-		@ConfigurationProperties("b.policy")
-		public TokenPolicy policyB() {
+		@ConfigurationProperties("cart.policy")
+		public TokenPolicy policyCart() {
 			return new TokenPolicy();
 		}
-		
+
 		@Bean
-		@ConfigurationProperties("c.policy")
-		public TokenPolicy policyC() {
+		@ConfigurationProperties("inventory.policy")
+		public TokenPolicy policyInventory() {
 			return new TokenPolicy();
 		}
-		
+
 		@Bean
-		@ConfigurationProperties("d.policy")
-		public TokenPolicy policyD() {
+		@ConfigurationProperties("suppliers.policy")
+		public TokenPolicy policySuppliers() {
 			return new TokenPolicy();
 		}
 
@@ -191,7 +204,7 @@ public class PolicyIntegrationTest {
 				HashMap<String, Object> claims = new HashMap<>();
 				claims.put("sub", "123");
 				claims.put("username", "will");
-				claims.put("scope", Arrays.asList("app.user", "app.admin"));
+				claims.put("scope", Arrays.asList("shop.user"));
 				claims.put("iss", "https://uaa.example.com/oauth/token");
 				return claims;
 			}
