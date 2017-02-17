@@ -86,12 +86,14 @@ public class PolicyIntegrationTest {
 		SignedMessage signedMessage = shop.signMessage("cart", "checkout", "hello cart, time to checkout");
 		// cart receives and verifies the message
 		VerifiedMessage verifiedMessage = cart.verifyMessage(signedMessage, "checkout");
-		// cart signs a message for inventory, including the token chain it got from shop
+		// cart signs a message for inventory, including the token chain it got
+		// from shop
 		signedMessage = cart.signMessage("inventory", "commit", "hello inventory, time to move things around",
 				verifiedMessage.getTokenChain());
 		// inventory receives and verifies the message
 		verifiedMessage = inventory.verifyMessage(signedMessage, "commit");
-		// inventory signs a message for suppliers, including the token chain it got from cart
+		// inventory signs a message for suppliers, including the token chain it
+		// got from cart
 		signedMessage = inventory.signMessage("suppliers", "resupply", "hello suppliers, time to order new goods",
 				verifiedMessage.getTokenChain());
 		// suppliers receives and verifies the message
@@ -105,13 +107,17 @@ public class PolicyIntegrationTest {
 		// cart receives and verifies the message
 		VerifiedMessage verifiedMessage = cart.verifyMessage(signedMessage, "checkout");
 		// save the token chain that cart got from shop to use later
-		String tokenChainFromA = verifiedMessage.getTokenChain();
-		// cart signs a message for inventory, including the token chain it got from shop
-		signedMessage = cart.signMessage("inventory", "commit", "hello inventory, time to move things around", tokenChainFromA);
+		String tokenChainFromShop = verifiedMessage.getTokenChain();
+		// cart signs a message for inventory, including the token chain it got
+		// from shop
+		signedMessage = cart.signMessage("inventory", "commit", "hello inventory, time to move things around",
+				tokenChainFromShop);
 		// inventory receives and verifies the message
 		verifiedMessage = inventory.verifyMessage(signedMessage, "commit");
-		// inventory signs a message for suppliers, including a truncated token chain from shop
-		signedMessage = inventory.signMessage("suppliers", "resupply", "hello suppliers, time to order new goods", tokenChainFromA);
+		// inventory signs a message for suppliers, including a truncated token
+		// chain from shop
+		signedMessage = inventory.signMessage("suppliers", "resupply", "hello suppliers, time to order new goods",
+				tokenChainFromShop);
 		// this throws an exception
 		verifiedMessage = suppliers.verifyMessage(signedMessage, "resupply");
 	}
@@ -122,7 +128,8 @@ public class PolicyIntegrationTest {
 		SignedMessage signedMessage = shop.signMessage("cart", "checkout", "hello cart, time to checkout");
 		VerifiedMessage verifiedMessage = cart.verifyMessage(signedMessage, "checkout");
 		// cart is going straight to suppliers
-		signedMessage = cart.signMessage("suppliers", "resupply", "hello suppliers, time to order new goods", verifiedMessage.getTokenChain());
+		signedMessage = cart.signMessage("suppliers", "resupply", "hello suppliers, time to order new goods",
+				verifiedMessage.getTokenChain());
 		verifiedMessage = suppliers.verifyMessage(signedMessage, "resupply");
 	}
 
