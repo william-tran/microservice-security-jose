@@ -49,4 +49,19 @@ suppliers:
           - app-name:
               equal-to: shop
             via-operation:
-              equal-to: checkout              
+              equal-to: checkout 
+               
+# A more permissive policy that allows invocation of resupply by any request that originated from shop              
+# suppliers:
+#   policy:
+#     for-each-of-the-following:
+#     - enforce-the-first-matching-rule:
+#       - tokens-that:
+#           have-operation:
+#             equal-to: resupply
+#         must:
+#           come-from:
+#           - any-number-of-apps: true
+#           - app-name:
+#               equal-to: shop
+            
