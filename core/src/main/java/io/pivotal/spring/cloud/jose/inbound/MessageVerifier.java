@@ -45,79 +45,47 @@ public class MessageVerifier {
 	private final AudienceClaimChecker audienceClaimChecker;
 
 	public VerifiedMessage verify(SignedMessage message, OperationClaimChecker operationChecker) {
-		String tokenChainEnvelope = message.getTokenChainEnvelope();
 
-		JWSObject jwsEnvelope;
-		try {
-			jwsEnvelope = JWSObject.parse(tokenChainEnvelope);
-		} catch (ParseException e) {
-			throw new VerificationException("JWS envelope for JWT cannot be parsed", e);
-		}
+		// parse and verify the JWS Envelope
+		JWSObject jwsEnvelope = getJwsEnvelope(message);
 		String keyID = jwsEnvelope.getHeader().getKeyID();
-		if (keyID == null) {
-			throw new VerificationException("JWS envelope for JWT must have kid in header");
-		}
-		if (!jwsEnvelope.getHeader().getContentType().equals(Constants.JWT_CONTENT_TYPE)) {
-			throw new VerificationException("JWS envelope for JWT must have cty header vaue = 'JWT'");
-		}
-
 		Entry registryEntry = getKeyFromRegistry(keyID);
-
 		JWSVerifier verifier = new RSASSAVerifier(registryEntry.getPublicKey());
-
 		verifyJWSObject(jwsEnvelope, verifier, "JWS envelope for JWT");
+
+		// open the envelope, parse and verify the JWT it contains
 		SignedJWT signedJWT = jwsEnvelope.getPayload().toSignedJWT();
 		verifyJWSObject(signedJWT, verifier, "JWT depth 0");
-		JWTClaimsSet jwtClaimsSet;
-		try {
-			jwtClaimsSet = signedJWT.getJWTClaimsSet();
-		} catch (ParseException e) {
-			throw new VerificationException("JWT depth 0 claims could not be parsed", e);
-		}
 
+		// Check the aud, op, exp claims of the JWT
+		JWTClaimsSet jwtClaimsSet = getJWTClaimsSet(signedJWT, 0);
 		checkTokenClaims(jwtClaimsSet, operationChecker);
 
+		// Add the JWT to the top of the call stack
 		List<SelfIssuedToken> callStack = new ArrayList<>();
 		callStack.add(new SelfIssuedToken(registryEntry.getAudience(), jwtClaimsSet.getClaims()));
 
+		// Recurse into the nested JWT, building up the call stack, and ending
+		// at the initial token.
 		Map<String, Object> initialTokenClaims = parseAndVerifyCallStack(callStack, jwtClaimsSet);
+
+		// Now that we have a verified call stack, we check the consistency of
+		// the chain of custody
 		checkChainOfCustody(callStack);
+
+		// Ensure the invocation complies with policies
 		checkPolicy(initialTokenClaims, callStack);
 
-		JWSObject jwsBody = null;
-		if (Boolean.TRUE.equals(jwtClaimsSet.getClaim("bdy"))) {
-			try {
-				jwsBody = JWSObject.parse(message.getBody());
-			} catch (ParseException e) {
-				throw new VerificationException("JWS body cannot be parsed", e);
-			}
-			verifyJWSObject(jwsBody, verifier, "JWS envelope for JWT");
-			Object jti = jwsBody.getHeader().getCustomParam(Constants.JWT_ID_CLAIM);
-			if (!jwtClaimsSet.getJWTID().equals(jti)) {
-				throw new VerificationException("JWT does not belong to given JWS body");
-			}
-		}
+		// Do this (almost) last because this requires the consumption of the
+		// entire message body
+		JWSObject jwsBody = parseAndVerifyBody(jwtClaimsSet, message, verifier);
+
+		// Do this last as implementations could require datastore access
 		checkReplay(callStack);
 
 		return assembleVerifiedMessage(signedJWT, initialTokenClaims, callStack, jwsBody);
 	}
-
-	private void checkChainOfCustody(List<SelfIssuedToken> callStack) {
-		for (int i = 0; i + 1 < callStack.size(); i++) {
-			SelfIssuedToken token = callStack.get(i);
-			SelfIssuedToken parent = callStack.get(i + 1);
-			if (!parent.getAudience().contains(token.getAudOfIssuer())) {
-				throw new VerificationException(
-						"chain of custody is inconsistent at depth " + i + ", token issued by aud value "
-								+ token.getAudOfIssuer() + " but parent token's aud was " + parent.getAudience());
-			}
-		}
-	}
-
-	private void checkReplay(List<SelfIssuedToken> callStack) {
-		replayChecker.checkReplay(callStack);
-	}
-
+	
 	private void checkTokenClaims(JWTClaimsSet jwtClaimsSet, OperationClaimChecker operationChecker) {
 		if (jwtClaimsSet.getJWTID() == null) {
 			throw new VerificationException("jti cannot be null");
@@ -136,56 +104,125 @@ public class MessageVerifier {
 			throw new VerificationException("op must be a string");
 		}
 		operationChecker.checkOperationClaim(opClaim.toString());
-
 	}
+
+	private Map<String, Object> parseAndVerifyCallStack(List<SelfIssuedToken> callStack,
+			JWTClaimsSet jwtClaimsSet) {
+		// recursion ends by returning initial token claims
+		Object initialTokenClaim = jwtClaimsSet.getClaim(Constants.INITIAL_TOKEN_CLAIM);
+		if (initialTokenClaim != null) {
+			return initialTokenClaimsExtractor.extractVerifiedClaims(initialTokenClaim.toString());
+		}
+		// initial token from the AS might not be included on purpose, end the
+		// recursion
+		Object parentJwtClaim = jwtClaimsSet.getClaim(Constants.PARENT_JWT_CLAIM);
+		if (parentJwtClaim == null) {
+			return null;
+		}
+		// Parse and verify the parent JWT. We use the issuer claim before
+		// verifying the JWT, because the issuer claim is used to resolve the
+		// verification key. This is fine because we trust the registry enough
+		// to prevent unauthorized parties from modifying the registry.
+		SignedJWT parentJwt = parseSignedJWT(parentJwtClaim.toString(), callStack.size());
+		JWTClaimsSet parentClaimsSet = getJWTClaimsSet(parentJwt, callStack.size());
+		Entry keyRegistryEntry = getKeyFromRegistry(parentClaimsSet.getIssuer());
+		JWSVerifier verifier = new RSASSAVerifier(keyRegistryEntry.getPublicKey());
+		verifyJWSObject(parentJwt, verifier, "JWT depth " + callStack.size());
+		// Add the verified claims of the parent JWT to the call stack and
+		// recurse.
+		callStack.add(new SelfIssuedToken(keyRegistryEntry.getAudience(), parentClaimsSet.getClaims()));
+		return parseAndVerifyCallStack(callStack, parentClaimsSet);
+	}
+
+	private void checkChainOfCustody(List<SelfIssuedToken> callStack) {
+		for (int i = 0; i + 1 < callStack.size(); i++) {
+			SelfIssuedToken token = callStack.get(i);
+			SelfIssuedToken parent = callStack.get(i + 1);
+			if (!parent.getAudience().contains(token.getAudOfIssuer())) {
+				throw new VerificationException(
+						"chain of custody is inconsistent at depth " + i + ", token issued by aud value "
+								+ token.getAudOfIssuer() + " but parent token's aud was " + parent.getAudience());
+			}
+		}
+	}
+
+	private VerifiedMessage assembleVerifiedMessage(SignedJWT tokenChain, Map<String, Object> initialTokenClaims,
+			List<SelfIssuedToken> callStack, JWSObject jwsBody) {
+		ensureVerified(tokenChain);
+		if (jwsBody == null) {
+			return new VerifiedMessage(tokenChain.getParsedString(), initialTokenClaims, callStack);
+		} else {
+			ensureVerified(jwsBody);
+			String contentType = jwsBody.getHeader().getContentType();
+			byte[] bytes = jwsBody.getPayload().toBytes();
+			return new VerifiedMessage(tokenChain.getParsedString(), initialTokenClaims, callStack, contentType, bytes);
+		}
+	}
+
+	private JWSObject getJwsEnvelope(SignedMessage message) {
+		String tokenChainEnvelope = message.getTokenChainEnvelope();
+		JWSObject jwsEnvelope;
+		try {
+			jwsEnvelope = JWSObject.parse(tokenChainEnvelope);
+		} catch (ParseException e) {
+			throw new VerificationException("JWS envelope for JWT cannot be parsed", e);
+		}
+		String keyID = jwsEnvelope.getHeader().getKeyID();
+		if (keyID == null) {
+			throw new VerificationException("JWS envelope for JWT must have kid in header");
+		}
+		if (!jwsEnvelope.getHeader().getContentType().equals(Constants.JWT_CONTENT_TYPE)) {
+			throw new VerificationException("JWS envelope for JWT must have cty header value = 'JWT'");
+		}
+		return jwsEnvelope;
+	}
+
+	private JWTClaimsSet getJWTClaimsSet(SignedJWT signedJWT, int depth) {
+		try {
+			return signedJWT.getJWTClaimsSet();
+		} catch (ParseException e) {
+			throw new VerificationException("JWT depth " + depth + " claims could not be parsed", e);
+		}
+	}
+
+	private JWSObject parseAndVerifyBody(JWTClaimsSet jwtClaimsSet, SignedMessage message, JWSVerifier verifier) {
+		JWSObject jwsBody = null;
+		if (Boolean.TRUE.equals(jwtClaimsSet.getClaim("bdy"))) {
+			try {
+				jwsBody = JWSObject.parse(message.getBody());
+			} catch (ParseException e) {
+				throw new VerificationException("JWS body cannot be parsed", e);
+			}
+			verifyJWSObject(jwsBody, verifier, "JWS body");
+			Object jti = jwsBody.getHeader().getCustomParam(Constants.JWT_ID_CLAIM);
+			if (!jwtClaimsSet.getJWTID().equals(jti)) {
+				throw new VerificationException("JWT does not belong to given JWS body");
+			}
+		}
+		return jwsBody;
+	}
+
+	private void checkReplay(List<SelfIssuedToken> callStack) {
+		replayChecker.checkReplay(callStack);
+	}
+
+	
 
 	private void checkPolicy(Map<String, Object> initialTokenClaims, List<SelfIssuedToken> callStack) {
 		policyChecker.checkPolicy(initialTokenClaims, callStack);
 	}
 
-	private VerifiedMessage assembleVerifiedMessage(SignedJWT tokenChain, Map<String, Object> initialTokenClaims,
-			List<SelfIssuedToken> callStack, JWSObject jwsBody) {
-		if (jwsBody == null) {
-			return new VerifiedMessage(tokenChain.getParsedString(), initialTokenClaims, callStack);
-		} else {
-			String contentType = jwsBody.getHeader().getContentType();
-			byte[] bytes = jwsBody.getPayload().toBytes();
-			return new VerifiedMessage(tokenChain.getParsedString(), initialTokenClaims, callStack, contentType, bytes);
+	/**
+	 * Safeguard against programming error by calling this before transforming
+	 * the JWT or JWS into an object used by the rest of the framework
+	 * 
+	 * @param jwsObject
+	 *            the JWT or JWS
+	 */
+	private void ensureVerified(JWSObject jwsObject) {
+		if (jwsObject.getState() != State.VERIFIED) {
+			throw new IllegalArgumentException("JWT or JWS must be verified!");
 		}
-
-	}
-
-	private Map<String, Object> parseAndVerifyCallStack(List<SelfIssuedToken> callStack,
-			JWTClaimsSet jwtClaimsSet) {
-		Object initialTokenClaim = jwtClaimsSet.getClaim(Constants.INITIAL_TOKEN_CLAIM);
-		if (initialTokenClaim != null) {
-			return initialTokenClaimsExtractor.extractVerifiedClaims(initialTokenClaim.toString());
-		}
-
-		Object parentJwtClaim = jwtClaimsSet.getClaim(Constants.PARENT_JWT_CLAIM);
-		if (parentJwtClaim == null) {
-			return null;
-		}
-		SignedJWT parentJwt;
-		try {
-			parentJwt = SignedJWT.parse(parentJwtClaim.toString());
-		} catch (ParseException e) {
-			throw new VerificationException("JWT depth " + callStack.size() + " could not be parsed", e);
-		}
-		JWTClaimsSet parentClaimsSet;
-		try {
-			parentClaimsSet = parentJwt.getJWTClaimsSet();
-		} catch (ParseException e) {
-			throw new VerificationException("JWT depth " + callStack.size() + " could not be parsed", e);
-
-		}
-		Entry keyRegistryEntry = getKeyFromRegistry(parentClaimsSet.getIssuer());
-
-		JWSVerifier verifier = new RSASSAVerifier(keyRegistryEntry.getPublicKey());
-
-		verifyJWSObject(parentJwt, verifier, "JWS envelope for JWT");
-		callStack.add(new SelfIssuedToken(keyRegistryEntry.getAudience(), parentClaimsSet.getClaims()));
-		return parseAndVerifyCallStack(callStack, parentClaimsSet);
 	}
 
 	private Entry getKeyFromRegistry(String keyId) {
@@ -194,6 +231,14 @@ public class MessageVerifier {
 			throw new VerificationException("No entry could be found in key registry for id " + keyId);
 		}
 		return keyRegistryEntry;
+	}
+
+	private SignedJWT parseSignedJWT(String jwt, int depth) {
+		try {
+			return SignedJWT.parse(jwt);
+		} catch (ParseException e) {
+			throw new VerificationException("JWT depth " + depth + " could not be parsed", e);
+		}
 	}
 
 	private void verifyJWSObject(JWSObject jwsEnvelope, JWSVerifier verifier, String objectDescription) {
