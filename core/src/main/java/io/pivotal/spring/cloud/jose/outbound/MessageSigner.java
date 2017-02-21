@@ -62,7 +62,6 @@ public class MessageSigner {
 		} catch (NoSuchAlgorithmException e) {
 			throw new SigningException("Cannot create RSA keypair", e);
 		}
-
 	}
 
 	public SignedMessage sign(Message message) {
@@ -72,17 +71,15 @@ public class MessageSigner {
 			throw new SigningException("Cannot sign an invalid message.", e);
 		}
 		String jti = randomBase64URLString(128);
-
-		String token = getJwsEnvelopedJwt(getSignedJwt(message, jti));
+		String tokenEnvelope = getEncodedAndSignedTokenEnvelope(message, jti);
 		String body = null;
 		if (message.getBody() != null) {
-			body = getJws(message, jti);
+			body = getEncodedAndSignedBody(message, jti);
 		}
-		return new SignedMessage(token, body);
+		return new SignedMessage(tokenEnvelope, body);
 	}
 
-	private SignedJWT getSignedJwt(Message message, String jti) {
-		JWTClaimsSet jwtClaims = getJwtClaims(message, jti);
+	private SignedJWT getSignedJwt(JWTClaimsSet jwtClaims) {
 		JWSHeader jwtHeader = new JWSHeader.Builder(jwsAlgorithm)
 				.type(JOSEObjectType.JWT)
 				.build();
@@ -95,7 +92,7 @@ public class MessageSigner {
 		return signedJWT;
 	}
 
-	private String getJwsEnvelopedJwt(SignedJWT signedJwt) {
+	private JWSObject getJwsEnvelopedJwt(SignedJWT signedJwt) {
 		JWSHeader jwsHeader = new JWSHeader.Builder(jwsAlgorithm)
 				.type(JOSEObjectType.JOSE)
 				.keyID(issuer)
@@ -108,16 +105,17 @@ public class MessageSigner {
 		} catch (JOSEException e) {
 			throw new SigningException("Cannot sign JWS envelope for JWT.", e);
 		}
-		return jws.serialize();
+		return jws;
 	}
 
 	private JWTClaimsSet getJwtClaims(Message message, String jti) {
 		JWTClaimsSet.Builder claimsBuilder = new JWTClaimsSet.Builder();
-		claimsBuilder.audience(message.getAudience())
+		claimsBuilder
+				.jwtID(jti)
 				.issuer(issuer)
+				.audience(message.getAudience())
 				.issueTime(new Date())
-				.expirationTime(getExpirationTime(message))
-				.jwtID(jti);
+				.expirationTime(getExpirationTime(message));
 		claimsBuilder.claim(Constants.OPERATION_CLAIM, message.getOperation());
 		if (message.getInitialToken() != null) {
 			claimsBuilder.claim(Constants.INITIAL_TOKEN_CLAIM, message.getInitialToken());
@@ -136,7 +134,14 @@ public class MessageSigner {
 		return claimsBuilder.build();
 	}
 
-	private String getJws(Message message, String jti) {
+	private String getEncodedAndSignedTokenEnvelope(Message message, String jti) {
+		JWTClaimsSet jwtClaims = getJwtClaims(message, jti);
+		SignedJWT signedJwt = getSignedJwt(jwtClaims);
+		JWSObject jwsEnvelopedJwt = getJwsEnvelopedJwt(signedJwt);
+		return jwsEnvelopedJwt.serialize();
+	}
+
+	private String getEncodedAndSignedBody(Message message, String jti) {
 		JWSHeader jwsHeader = new JWSHeader.Builder(jwsAlgorithm)
 				.type(JOSEObjectType.JOSE)
 				.contentType(message.getContentType())
@@ -155,9 +160,9 @@ public class MessageSigner {
 	private Date getExpirationTime(Message message) {
 		return new Date(System.currentTimeMillis() + message.getTtlSeconds() * 1000);
 	}
-	
-	private String randomBase64URLString(int bitLength) {
-		byte[] bytes = new byte[bitLength / 8];
+
+	private String randomBase64URLString(int bitsOfEntropy) {
+		byte[] bytes = new byte[bitsOfEntropy / 8];
 		secureRandom.nextBytes(bytes);
 		return Base64URL.encode(bytes).toString();
 	}
