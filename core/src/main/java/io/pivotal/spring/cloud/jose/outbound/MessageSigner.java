@@ -19,11 +19,11 @@ package io.pivotal.spring.cloud.jose.outbound;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.util.Date;
 import java.util.Map.Entry;
-import java.util.UUID;
 
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JOSEObjectType;
@@ -33,6 +33,7 @@ import com.nimbusds.jose.JWSObject;
 import com.nimbusds.jose.JWSSigner;
 import com.nimbusds.jose.Payload;
 import com.nimbusds.jose.crypto.RSASSASigner;
+import com.nimbusds.jose.util.Base64URL;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 
@@ -46,6 +47,7 @@ public class MessageSigner {
 	private final RSAPublicKey publicKey;
 	private final JWSSigner signer;
 	private final String issuer;
+	private final SecureRandom secureRandom;
 
 	public MessageSigner(String issuer) {
 		this.issuer = issuer;
@@ -56,6 +58,7 @@ public class MessageSigner {
 			publicKey = (RSAPublicKey) keypair.getPublic();
 			RSAPrivateKey privateKey = (RSAPrivateKey) keypair.getPrivate();
 			signer = new RSASSASigner(privateKey);
+			secureRandom = new SecureRandom();
 		} catch (NoSuchAlgorithmException e) {
 			throw new SigningException("Cannot create RSA keypair", e);
 		}
@@ -68,7 +71,7 @@ public class MessageSigner {
 		} catch (InvalidMessageException e) {
 			throw new SigningException("Cannot sign an invalid message.", e);
 		}
-		String jti = UUID.randomUUID().toString().replaceAll("-", "");
+		String jti = randomBase64URLString(128);
 
 		String token = getJwsEnvelopedJwt(getSignedJwt(message, jti));
 		String body = null;
@@ -151,6 +154,12 @@ public class MessageSigner {
 
 	private Date getExpirationTime(Message message) {
 		return new Date(System.currentTimeMillis() + message.getTtlSeconds() * 1000);
+	}
+	
+	private String randomBase64URLString(int bitLength) {
+		byte[] bytes = new byte[bitLength / 8];
+		secureRandom.nextBytes(bytes);
+		return Base64URL.encode(bytes).toString();
 	}
 
 }
