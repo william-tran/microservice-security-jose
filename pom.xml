@@ -8,7 +8,7 @@
   <packaging>pom</packaging>
   <name>Spring Cloud Services Security</name>
   <description>Spring Cloud Services Security</description>
-  <url>https://github.com/pivotal-cf-experimental/spring-cloud-services-security</url>
+  <url>https://github.com/william-tran/microservice-security-jose</url>
 
   <licenses>
     <license>
@@ -26,9 +26,9 @@
   </contributors>
   
   <scm>
-    <url>https://github.com/pivotal-cf-experimental/spring-cloud-services-security</url>
-    <connection>scm:git:git://github.com/pivotal-cf-experimental/spring-cloud-services-security</connection>
-    <developerConnection>scm:git:git://github.com/pivotal-cf-experimental/spring-cloud-services-security</developerConnection>
+    <url>https://github.com/william-tran/microservice-security-jose</url>
+    <connection>scm:git:git://github.com/william-tran/microservice-security-jose</connection>
+    <developerConnection>scm:git:git://github.com/william-tran/microservice-security-jose</developerConnection>
   </scm>
 
   <modules>
