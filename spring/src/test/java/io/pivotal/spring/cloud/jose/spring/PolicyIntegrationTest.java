@@ -26,6 +26,7 @@ import java.util.UUID;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -62,7 +63,7 @@ public class PolicyIntegrationTest {
 	@BeforeClass
 	public static void init() {
 
-		ConfigurableApplicationContext context = new SpringApplicationBuilder().web(false)
+		ConfigurableApplicationContext context = new SpringApplicationBuilder().web(WebApplicationType.NONE)
 				.properties("spring.aop.proxyTargetClass=true")
 				.sources(PolicyIntegrationTest.TestConfig.class).run();
 		TokenPolicy policyShop = context.getBean("policyShop", TokenPolicy.class);
